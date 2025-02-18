@@ -3,7 +3,7 @@
 Leveraging Data to Optimize Bookstore Inventory & Marketing
 🚀 Project Overview
 
-This project analyzes the [Book-Crossing dataset]([https://example.com](https://www.kaggle.com/datasets/ruchi798/bookcrossing-dataset), a large collection of book ratings and user demographics, to uncover reading trends and business opportunities for bookstores.
+This project analyzes the [Book-Crossing dataset](https://www.kaggle.com/datasets/ruchi798/bookcrossing-dataset), a large collection of book ratings and user demographics, to uncover reading trends and business opportunities for bookstores.
 
 Using SQL for data analysis and Power BI for visualization, the project explores:
 ✔️ Top-rated books by category, country, and reader demographics
