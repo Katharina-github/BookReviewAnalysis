@@ -1,0 +1,20 @@
+-- 📌 Query 1: Hidden Gems - Books with High Ratings but Low Visibility
+-- Finds books with an average rating of 10 but a limited number of ratings (between 5 and 50).
+WITH BookRatingCounts AS (
+    SELECT 
+        b.book_title,
+        COUNT(r.book_rating) AS rating_count,
+        AVG(r.book_rating) AS avg_rating
+    FROM ratings r
+    JOIN books b ON b.isbn = r.isbn
+    GROUP BY book_title
+)
+SELECT 
+    book_title,
+    avg_rating,
+    rating_count
+FROM BookRatingCounts
+WHERE 
+    rating_count BETWEEN 5 AND 50  -- Minimum and maximum ratings to find "hidden gems"
+    AND avg_rating = 10  -- Only books with an average rating of at least 10
+ORDER BY avg_rating DESC, rating_count ASC;
