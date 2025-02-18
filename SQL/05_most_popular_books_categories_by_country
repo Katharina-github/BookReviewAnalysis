@@ -1,0 +1,102 @@
+-- 📌 Query 1: Most Rated Books
+-- This query finds the most-rated books by counting the number of ratings each book has received.
+SELECT 
+    b.ISBN, 
+    b."Book-Title", 
+    b."Book-Author", 
+    COUNT(r."Book-Rating") AS num_ratings
+FROM ratings r
+JOIN books b ON r.ISBN = b.ISBN
+WHERE r."Book-Rating" > 0
+GROUP BY b.ISBN, b."Book-Title", b."Book-Author"
+ORDER BY num_ratings DESC
+LIMIT 10;
+
+-- 📌 Query 2: Most Rated Books by Country
+-- This query identifies the most-rated books in the top 10 countries with the highest number of users.
+WITH TopCountries AS (
+    SELECT 
+        country,
+        COUNT(user_id) AS user_count
+    FROM users
+    WHERE country IS NOT NULL
+    GROUP BY country
+    ORDER BY user_count DESC
+    LIMIT 10
+),
+CountryRatings AS (
+    SELECT 
+        u.country,
+        r.ISBN,
+        b.book_title,
+        COUNT(r.book_rating) AS rating_count
+    FROM ratings r
+    JOIN users u ON r.user_id = u.user_id
+    JOIN books b ON r.ISBN = b.ISBN
+    WHERE u.country IN (SELECT country FROM TopCountries)
+    GROUP BY u.country, r.ISBN, b.book_title
+),
+RankedBooks AS (
+    SELECT 
+        country,
+        ISBN,
+        book_title,
+        rating_count,
+        RANK() OVER (PARTITION BY country ORDER BY rating_count DESC) AS rank
+    FROM CountryRatings
+)
+SELECT 
+    country,
+    ISBN,
+    book_title,
+    rating_count
+FROM RankedBooks
+WHERE rank <= 5
+ORDER BY country, rank;
+
+-- 📌 Query 3: Highest Rated Books by Country (Weighted)
+-- This query calculates a weighted rating for books using IMDb’s formula and ranks them per country.
+WITH country_users AS (
+    SELECT country, COUNT(*) AS user_count
+    FROM users
+    WHERE country IS NOT NULL AND country <> ''
+    GROUP BY country
+    ORDER BY user_count DESC
+    LIMIT 10
+), book_stats AS (
+    SELECT 
+        u.country,
+        r.ISBN,
+        b.book_title,
+        COUNT(r.book_rating) AS num_ratings,
+        AVG(r.book_rating) AS avg_rating
+    FROM ratings r
+    JOIN users u ON r.user_id = u.user_id
+    JOIN books b ON r.ISBN = b.ISBN
+    WHERE r.book_rating > 0
+      AND u.country IN (SELECT country FROM country_users)
+    GROUP BY u.country, r.ISBN, b.book_title
+), global_avg AS (
+    SELECT 
+        AVG(avg_rating)::NUMERIC AS C,  
+        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY num_ratings)::NUMERIC AS m  
+    FROM book_stats  
+), weighted_ratings AS (
+    SELECT 
+        bs.country,
+        bs.ISBN,
+        bs.book_title,
+        bs.num_ratings,
+        ROUND(bs.avg_rating, 2) AS avg_rating,
+        ROUND(((bs.num_ratings / (bs.num_ratings + g.m) * bs.avg_rating) + 
+              (g.m / (bs.num_ratings + g.m) * g.C))::NUMERIC, 2) AS weighted_score  
+    FROM book_stats bs
+    CROSS JOIN global_avg g  
+)
+SELECT country, ISBN, book_title, weighted_score
+FROM (
+    SELECT *, RANK() OVER (PARTITION BY country ORDER BY weighted_score DESC) AS rank
+    FROM weighted_ratings
+) ranked_books
+WHERE rank <= 5
+ORDER BY country, weighted_score DESC;
