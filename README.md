@@ -17,14 +17,19 @@ Using SQL for data analysis and Power BI for visualization, the project explores
 ✔️ Publisher insights based on popularity
 
 🎯 Business Goal: Help bookstores make data-driven decisions to improve inventory, marketing, and customer engagement.
+
 📊 Key Insights
+
 1️⃣ Most Popular Books (Weighted Ratings)
 
 Using a Bayesian weighted rating formula (similar to IMDb’s approach), we ranked books fairly to prevent bias toward books with only a few high ratings.
 
 📌 Example (Top Books by Weighted Score):
+
 Rank	Book Title	Author	Ratings	Avg Score	Weighted Score
+
 1	Harry Potter and the Chamber of Secrets Postcard Book	J.K. Rowling	23	9.87	9.68
+
 2	Postmarked Yesteryear: 30 Rare Holiday Postcards	P. Apkarian-Russell	11	10.00	9.62
 
 2️⃣ Reading Preferences by Region and Age
@@ -42,6 +47,7 @@ Rank	Book Title	Author	Ratings	Avg Score	Weighted Score
 Books with high ratings but low visibility were identified, showing an opportunity for bookstores to promote niche bestsellers.
 
 📌 Example: A Voice in the Wind (Mark of the Lion #1) – 10.00 avg rating but only 5 ratings.
+
 🛠️ Tools & Methods
 
 ✔️ SQL – Data extraction, ranking calculations, and weighted rating analysis
