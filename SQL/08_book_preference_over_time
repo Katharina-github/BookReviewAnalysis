@@ -1,0 +1,53 @@
+-- 📌 Query 1: Analyzing Book Preferences Over Time
+-- This query examines whether newer books receive higher ratings than older ones.
+-- It filters for books with a minimum number of reviews (85th percentile) and calculates the average rating per year.
+WITH book_stats AS (
+    SELECT 
+        b.year_of_publication,
+        COUNT(r.book_rating) AS num_ratings,
+        AVG(r.book_rating) AS avg_rating
+    FROM ratings r
+    JOIN books b ON r.isbn = b.isbn
+    WHERE r.book_rating > 0 AND b.year_of_publication IS NOT NULL
+    GROUP BY b.year_of_publication
+), min_ratings_threshold AS (
+    SELECT 
+        PERCENTILE_CONT(0.85) WITHIN GROUP (ORDER BY num_ratings) AS min_reviews
+    FROM book_stats
+)
+SELECT 
+    bs.year_of_publication,
+    bs.num_ratings,
+    ROUND(bs.avg_rating, 2) AS avg_rating
+FROM book_stats bs
+JOIN min_ratings_threshold mrt ON bs.num_ratings >= mrt.min_reviews  -- Filter out books with too few reviews
+ORDER BY bs.year_of_publication;
+
+-- 📌 Query 2: Identifying the 3 Most Popular Categories per Year
+-- This query identifies the top 3 most rated book categories for each year of publication.
+-- Since purchase data is unavailable, it relies on publication year to determine trends.
+WITH category_stats AS (
+    SELECT 
+        b.year_of_publication,
+        b.category,
+        COUNT(r.book_rating) AS num_ratings
+    FROM ratings r
+    JOIN books b ON r.isbn = b.isbn
+    WHERE r.book_rating > 0 AND b.year_of_publication IS NOT NULL
+    GROUP BY b.year_of_publication, b.category
+), ranked_categories AS (
+    SELECT 
+        year_of_publication,
+        category,
+        num_ratings,
+        RANK() OVER (PARTITION BY year_of_publication ORDER BY num_ratings DESC) AS ranking
+    FROM category_stats
+    WHERE category IS NOT NULL AND year_of_publication BETWEEN 1920 AND 2004
+)
+SELECT 
+    year_of_publication,
+    category,
+    num_ratings
+FROM ranked_categories
+WHERE ranking <= 3  
+ORDER BY year_of_publication, ranking;
