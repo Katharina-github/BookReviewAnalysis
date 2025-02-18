@@ -1,0 +1,65 @@
+-- Analyzing book genres/categories based on highest engagement (number of ratings) 🔥
+WITH category_stats AS (
+    SELECT 
+        b.category,
+        COUNT(r.book_rating) AS num_ratings,
+        AVG(r.book_rating) AS avg_rating
+    FROM ratings r
+    JOIN books b ON r.ISBN = b.ISBN
+    WHERE r.book_rating > 0
+    GROUP BY b.category
+)
+SELECT 
+    category,
+    num_ratings,
+    ROUND(avg_rating, 2) AS avg_rating
+FROM category_stats
+WHERE category IS NOT NULL
+ORDER BY num_ratings DESC 
+LIMIT 10;
+
+-- Analyzing book genres/categories based on highest average ratings 📊
+WITH category_stats AS (
+    SELECT 
+        b.category,
+        COUNT(r.book_rating) AS num_ratings,
+        AVG(r.book_rating) AS avg_rating
+    FROM ratings r
+    JOIN books b ON r.ISBN = b.ISBN
+    WHERE r.book_rating > 0
+    GROUP BY b.category
+)
+SELECT 
+    category,
+    num_ratings,
+    ROUND(avg_rating, 2) AS avg_rating
+FROM category_stats
+ORDER BY avg_rating DESC
+LIMIT 10;
+
+-- Using a weighted approach (Bayesian average formula) for better ranking
+WITH category_stats AS (
+    SELECT 
+        b.category,
+        COUNT(r.book_rating) AS num_ratings,
+        AVG(r.book_rating) AS avg_rating
+    FROM ratings r
+    JOIN books b ON r.ISBN = b.ISBN
+    WHERE r.book_rating > 0
+    GROUP BY b.category
+), global_avg AS (
+    SELECT 
+        AVG(avg_rating)::NUMERIC AS C,  
+        PERCENTILE_CONT(0.8) WITHIN GROUP (ORDER BY num_ratings)::NUMERIC AS m  
+    FROM category_stats  
+)
+SELECT 
+    cs.category,
+    cs.num_ratings,
+    ROUND(cs.avg_rating, 2) AS avg_rating,
+    ROUND(((cs.num_ratings / (cs.num_ratings + g.m) * cs.avg_rating) + 
+          (g.m / (cs.num_ratings + g.m) * g.C))::NUMERIC, 2) AS weighted_score  
+FROM category_stats cs
+CROSS JOIN global_avg g  
+ORDER BY weighted_score DESC  
+LIMIT 10;
