@@ -1,0 +1,37 @@
+-- 📌 Query 1: Average Rating per Publisher (Weighted)
+WITH publisher_stats AS (
+    SELECT 
+        b.publisher,
+        COUNT(r.book_rating) AS num_ratings,
+        AVG(r.book_rating) AS avg_rating
+    FROM ratings r
+    JOIN books b ON r.isbn = b.isbn
+    WHERE r.book_rating > 0 AND b.publisher IS NOT NULL
+    GROUP BY b.publisher
+), global_avg AS (
+    SELECT 
+        AVG(avg_rating)::NUMERIC AS C,  
+        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY num_ratings)::NUMERIC AS m  
+    FROM publisher_stats  
+)
+SELECT 
+    ps.publisher,
+    ps.num_ratings,
+    ROUND(ps.avg_rating, 2) AS avg_rating,
+    ROUND(((ps.num_ratings / (ps.num_ratings + g.m) * ps.avg_rating) + 
+          (g.m / (ps.num_ratings + g.m) * g.C))::NUMERIC, 2) AS weighted_score
+FROM publisher_stats ps
+CROSS JOIN global_avg g
+ORDER BY weighted_score DESC
+LIMIT 10;
+
+-- 📌 Query 2: Most Popular Publishers by Number of Reviews
+SELECT 
+    b.publisher,
+    COUNT(r.book_rating) AS num_ratings
+FROM ratings r
+JOIN books b ON r.isbn = b.isbn
+WHERE r.book_rating > 0 AND b.publisher IS NOT NULL
+GROUP BY b.publisher
+ORDER BY num_ratings DESC
+LIMIT 10;
