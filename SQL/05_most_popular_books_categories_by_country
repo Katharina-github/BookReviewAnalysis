@@ -1,18 +1,4 @@
--- 📌 Query 1: Most Rated Books
--- This query finds the most-rated books by counting the number of ratings each book has received.
-SELECT 
-    b.ISBN, 
-    b."Book-Title", 
-    b."Book-Author", 
-    COUNT(r."Book-Rating") AS num_ratings
-FROM ratings r
-JOIN books b ON r.ISBN = b.ISBN
-WHERE r."Book-Rating" > 0
-GROUP BY b.ISBN, b."Book-Title", b."Book-Author"
-ORDER BY num_ratings DESC
-LIMIT 10;
-
--- 📌 Query 2: Most Rated Books by Country
+-- 📌 Query 1: Most Rated Books by Country
 -- This query identifies the most-rated books in the top 10 countries with the highest number of users.
 WITH TopCountries AS (
     SELECT 
@@ -54,7 +40,7 @@ FROM RankedBooks
 WHERE rank <= 5
 ORDER BY country, rank;
 
--- 📌 Query 3: Highest Rated Books by Country (Weighted)
+-- 📌 Query 2: Highest Rated Books by Country (Weighted)
 -- This query calculates a weighted rating for books using IMDb’s formula and ranks them per country.
 WITH country_users AS (
     SELECT country, COUNT(*) AS user_count
