@@ -1,0 +1,149 @@
+-- 📌 Query 1: Most Popular Categories by Weighted Reviews by Age Group
+-- Determines the most popular book categories for different age groups using a weighted rating approach.
+WITH user_age_groups AS (
+    SELECT 
+        user_id,
+        CASE 
+            WHEN age IS NULL THEN 'Unknown'
+            WHEN age < 18 THEN 'Under 18'
+            WHEN age BETWEEN 18 AND 30 THEN '18-30'
+            WHEN age BETWEEN 31 AND 50 THEN '31-50'
+            ELSE '51+'
+        END AS age_group
+    FROM users
+), category_stats AS (
+    SELECT 
+        u.age_group,
+        b.category,
+        COUNT(r.book_rating) AS num_ratings,
+        AVG(r.book_rating) AS avg_rating
+    FROM ratings r
+    JOIN books b ON r.isbn = b.isbn
+    JOIN user_age_groups u ON r.user_id = u.user_id
+    WHERE r.book_rating > 0
+    GROUP BY u.age_group, b.category
+), global_avg AS (
+    SELECT 
+        age_group,
+        AVG(avg_rating)::NUMERIC AS C,  
+        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY num_ratings)::NUMERIC AS m  
+    FROM category_stats  
+    GROUP BY age_group
+), ranked_categories AS (
+    SELECT 
+        cs.age_group,
+        cs.category,
+        cs.num_ratings,
+        ROUND(cs.avg_rating, 2) AS avg_rating,
+        ROUND(((cs.num_ratings / (cs.num_ratings + g.m) * cs.avg_rating) + 
+              (g.m / (cs.num_ratings + g.m) * g.C))::NUMERIC, 2) AS weighted_score,
+        ROW_NUMBER() OVER (PARTITION BY cs.age_group ORDER BY 
+                           ((cs.num_ratings / (cs.num_ratings + g.m) * cs.avg_rating) + 
+                           (g.m / (cs.num_ratings + g.m) * g.C)) DESC) AS ranking
+    FROM category_stats cs
+    JOIN global_avg g ON cs.age_group = g.age_group
+)
+SELECT 
+    age_group,
+    category,
+    num_ratings,
+    avg_rating,
+    weighted_score
+FROM ranked_categories
+WHERE ranking <= 3  
+ORDER BY age_group, ranking;
+
+-- 📌 Query 2: Most Popular Categories by Number of Ratings
+-- Finds the top 5 most frequently rated book categories per age group.
+WITH user_age_groups AS (
+    SELECT 
+        user_id,
+        CASE 
+            WHEN age IS NULL THEN 'Unknown'
+            WHEN age < 18 THEN 'Under 18'
+            WHEN age BETWEEN 18 AND 30 THEN '18-30'
+            WHEN age BETWEEN 31 AND 50 THEN '31-50'
+            ELSE '51+'
+        END AS age_group
+    FROM users
+), category_stats AS (
+    SELECT 
+        u.age_group,
+        b.category,
+        COUNT(r.book_rating) AS num_ratings
+    FROM ratings r
+    JOIN user_age_groups u ON r.user_id = u.user_id
+    JOIN books b ON r.ISBN = b.ISBN
+    WHERE r.book_rating > 0
+    GROUP BY u.age_group, b.category
+), ranked_categories AS (
+    SELECT 
+        age_group,
+        category,
+        num_ratings,
+        RANK() OVER (PARTITION BY age_group ORDER BY num_ratings DESC) AS rank
+    FROM category_stats
+    WHERE category IS NOT NULL
+)
+SELECT age_group, category, num_ratings
+FROM ranked_categories
+WHERE rank <= 5
+ORDER BY age_group, rank;
+
+-- 📌 Query 3: Most Popular Books with Highest Weighted Reviews by Age Group
+-- Identifies the top-rated books for each age group using a weighted rating system.
+WITH user_age_groups AS (
+    SELECT
+        user_id,
+        CASE
+            WHEN age IS NULL THEN 'Unknown'
+            WHEN age < 18 THEN 'Under 18'
+            WHEN age BETWEEN 18 AND 30 THEN '18-30'
+            WHEN age BETWEEN 31 AND 50 THEN '31-50'
+            ELSE '51+'
+        END AS age_group
+    FROM users
+), book_stats AS (
+    SELECT
+        u.age_group,
+        b.isbn,
+        b.book_title,
+        COUNT(r.book_rating) AS num_ratings,
+        AVG(r.book_rating) AS avg_rating
+    FROM ratings r
+    JOIN books b ON r.isbn = b.isbn
+    JOIN user_age_groups u ON r.user_id = u.user_id
+    WHERE r.book_rating > 0
+    GROUP BY u.age_group, b.isbn, b.book_title
+), global_avg AS (
+    SELECT
+        age_group,
+        AVG(avg_rating)::NUMERIC AS C,
+        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY num_ratings)::NUMERIC AS m
+    FROM book_stats
+    GROUP BY age_group
+), ranked_books AS (
+    SELECT
+        bs.age_group,
+        bs.isbn,
+        bs.book_title,
+        bs.num_ratings,
+        ROUND(bs.avg_rating, 2) AS avg_rating,
+        ROUND(((bs.num_ratings / (bs.num_ratings + g.m) * bs.avg_rating) +
+              (g.m / (bs.num_ratings + g.m) * g.C))::NUMERIC, 2) AS weighted_score,
+        ROW_NUMBER() OVER (PARTITION BY bs.age_group ORDER BY
+                           ((bs.num_ratings / (bs.num_ratings + g.m) * bs.avg_rating) +
+                           (g.m / (bs.num_ratings + g.m) * g.C)) DESC) AS ranking
+    FROM book_stats bs
+    JOIN global_avg g ON bs.age_group = g.age_group
+)
+SELECT
+    age_group,
+    isbn,
+    book_title,
+    num_ratings,
+    avg_rating,
+    weighted_score
+FROM ranked_books
+WHERE ranking <= 5
+ORDER BY age_group, ranking;
